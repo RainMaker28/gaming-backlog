@@ -131,7 +131,6 @@ export default function App(){
   const[games,setGames]=useState(INIT_GAMES);const[tab,setTab]=useState("dashboard");const[libSub,setLibSub]=useState(null);const[sel,setSel]=useState(null);const[data,setData]=useState({});const[loaded,setLoaded]=useState(false);const[pf,setPf]=useState("All");const[search,setSearch]=useState("");
   const saveTimer=useRef(null);
 
-  // Auth listener
   useEffect(()=>{
     supabase.auth.getSession().then(({data:{session}})=>{
       setUser(session?.user||null);
@@ -143,7 +142,6 @@ export default function App(){
     return ()=>subscription.unsubscribe();
   },[]);
 
-  // Load data when user is available
   useEffect(()=>{
     if(!user)return;
     (async()=>{
@@ -156,7 +154,6 @@ export default function App(){
     })();
   },[user]);
 
-  // Debounced save to Supabase
   const save=useCallback((d,g)=>{
     if(!user)return;
     const c={};g.forEach(x=>{c[x.id]=x.category});
@@ -207,9 +204,7 @@ export default function App(){
         {grid(games.filter(g=>g.title.toLowerCase().includes(search.toLowerCase())))}
       </div>:<>
       {tab==="dashboard"&&!libSub&&<div>
-        <div style={{fontSize:11,color:"rgba(255,255,255,.2)",fontStyle:"italic",marginBottom:16}}>Active games · {t1.length} in focus</div>
-        {grid(t1)}
-        {rc.length>0&&<div style={{marginTop:32}}>
+        {rc.length>0&&<div style={{marginBottom:32}}>
           <div style={{fontSize:11,fontWeight:700,color:"rgba(255,255,255,.25)",letterSpacing:"1.5px",textTransform:"uppercase",fontFamily:"'Outfit',sans-serif",marginBottom:12}}>Recent Activity</div>
           {rc.map((r,i)=>(<div key={i} style={{display:"flex",alignItems:"center",gap:12,padding:"8px 0",borderBottom:"1px solid rgba(255,255,255,.04)"}}>
             <div style={{width:4,height:4,borderRadius:"50%",background:r.accent,flexShrink:0}}/>
@@ -217,6 +212,8 @@ export default function App(){
             <span style={{marginLeft:"auto",fontSize:10,color:"rgba(255,255,255,.2)"}}>{new Date(r.ts).toLocaleDateString()}</span>
           </div>))}
         </div>}
+        <div style={{fontSize:11,color:"rgba(255,255,255,.2)",fontStyle:"italic",marginBottom:16}}>Active games · {t1.length} in focus</div>
+        {grid(t1)}
       </div>}
       {tab==="tier1"&&!libSub&&grid(filt("tier1"))}
       {tab==="tier2"&&!libSub&&grid(filt("tier2"))}
