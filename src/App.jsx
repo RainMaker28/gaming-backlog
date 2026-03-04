@@ -1,5 +1,6 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { GAMES as INIT_GAMES } from "./games.js";
+import { supabase, signInWithGitHub, signOut, getUser, loadData, saveData } from "./supabase.js";
 
 const CATS = [
   {id:"tier1",label:"Tier 1"},{id:"tier2",label:"Tier 2"},{id:"pickup",label:"Pick Up and Play"},
@@ -7,12 +8,6 @@ const CATS = [
 ];
 const PC = {"Xbox Series S":"#107c10","Dreamcast":"#0057a8","PS2 Emulator":"#3b5998","Nintendo Switch":"#e4000f","Steam Deck":"#1a9fff","Steam":"#1a9fff"};
 const PC_BG = {"PS2 Emulator":"#1a1a24","Dreamcast":"#ffffff"};
-
-// localStorage persistence
-const storage = {
-  get(key) { try { const v = localStorage.getItem(key); return v ? JSON.parse(v) : null; } catch(e) { return null; } },
-  set(key, val) { try { localStorage.setItem(key, JSON.stringify(val)); } catch(e) {} },
-};
 
 function getAllChapterIds(g){return g.chapters?g.chapters.flatMap(gr=>gr.sub.map(s=>s.id)):[];}
 function getProgress(g,d){
@@ -114,16 +109,61 @@ function Detail({game,data,onToggle,onClose,onSetPct,onSetRuns,onComplete,onReas
   </div>);
 }
 
-export default function App(){
-  const[games,setGames]=useState(INIT_GAMES);const[tab,setTab]=useState("dashboard");const[libSub,setLibSub]=useState(null);const[sel,setSel]=useState(null);const[data,setData]=useState({});const[loaded,setLoaded]=useState(false);const[pf,setPf]=useState("All");const[search,setSearch]=useState("");
+function LoginScreen() {
+  return (
+    <div style={{minHeight:"100vh",background:"#08080c",display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"'Work Sans',sans-serif"}}>
+      <div style={{textAlign:"center",padding:40}}>
+        <div style={{fontSize:10,fontWeight:600,letterSpacing:"2px",color:"rgba(255,255,255,.25)",textTransform:"uppercase",fontFamily:"'Outfit',sans-serif",marginBottom:12}}>Backlog</div>
+        <h1 style={{fontFamily:"'Outfit',sans-serif",fontSize:32,fontWeight:800,color:"#fff",letterSpacing:"-.5px",marginBottom:8}}>Gaming Library</h1>
+        <p style={{color:"rgba(255,255,255,.3)",fontSize:14,marginBottom:32}}>Sign in to sync your progress across devices</p>
+        <button onClick={signInWithGitHub} style={{padding:"14px 32px",borderRadius:10,border:"none",background:"rgba(255,255,255,.1)",color:"#fff",fontSize:14,fontWeight:600,fontFamily:"'Outfit',sans-serif",cursor:"pointer",display:"inline-flex",alignItems:"center",gap:10,transition:"background .2s ease"}}
+          onMouseEnter={e=>e.target.style.background="rgba(255,255,255,.15)"}
+          onMouseLeave={e=>e.target.style.background="rgba(255,255,255,.1)"}>
+          Sign in with GitHub
+        </button>
+      </div>
+    </div>
+  );
+}
 
+export default function App(){
+  const[user,setUser]=useState(null);const[authLoading,setAuthLoading]=useState(true);
+  const[games,setGames]=useState(INIT_GAMES);const[tab,setTab]=useState("dashboard");const[libSub,setLibSub]=useState(null);const[sel,setSel]=useState(null);const[data,setData]=useState({});const[loaded,setLoaded]=useState(false);const[pf,setPf]=useState("All");const[search,setSearch]=useState("");
+  const saveTimer=useRef(null);
+
+  // Auth listener
   useEffect(()=>{
-    const saved = storage.get("backlog-v2");
-    if(saved){ setData(saved.data||{}); if(saved.categories) setGames(prev=>prev.map(g=>({...g,category:saved.categories[g.id]||g.category}))); }
-    setLoaded(true);
+    supabase.auth.getSession().then(({data:{session}})=>{
+      setUser(session?.user||null);
+      setAuthLoading(false);
+    });
+    const {data:{subscription}} = supabase.auth.onAuthStateChange((_,session)=>{
+      setUser(session?.user||null);
+    });
+    return ()=>subscription.unsubscribe();
   },[]);
 
-  const save=useCallback((d,g)=>{const c={};g.forEach(x=>{c[x.id]=x.category});storage.set("backlog-v2",{data:d,categories:c});},[]);
+  // Load data when user is available
+  useEffect(()=>{
+    if(!user)return;
+    (async()=>{
+      const saved = await loadData(user.id);
+      if(saved){
+        setData(saved.data||{});
+        if(saved.categories) setGames(prev=>prev.map(g=>({...g,category:saved.categories[g.id]||g.category})));
+      }
+      setLoaded(true);
+    })();
+  },[user]);
+
+  // Debounced save to Supabase
+  const save=useCallback((d,g)=>{
+    if(!user)return;
+    const c={};g.forEach(x=>{c[x.id]=x.category});
+    if(saveTimer.current)clearTimeout(saveTimer.current);
+    saveTimer.current=setTimeout(()=>{ saveData(user.id,d,c); },500);
+  },[user]);
+
   const toggle=useCallback(chId=>{setData(p=>{const n={...p,[chId]:!p[chId],[chId+"-ts"]:Date.now()};save(n,games);return n;});},[save,games]);
   const setPct=useCallback((k,v)=>{setData(p=>{const n={...p,[k]:v,[k+"-ts"]:Date.now()};save(n,games);return n;});},[save,games]);
   const setRuns=useCallback((k,v)=>{setData(p=>{const n={...p,[k]:v,[k+"-ts"]:Date.now()};save(n,games);return n;});},[save,games]);
@@ -131,13 +171,20 @@ export default function App(){
   const complete=useCallback(gId=>{reassign(gId,"completed");setSel(null);},[reassign]);
   const recent=useCallback(()=>{const e=[];games.forEach(g=>{if(g.chapters)g.chapters.forEach(gr=>gr.sub.forEach(ch=>{if(data[ch.id]&&data[ch.id+"-ts"])e.push({game:g.title,ch:ch.name,ts:data[ch.id+"-ts"],accent:g.accent});}));});return e.sort((a,b)=>b.ts-a.ts).slice(0,5);},[games,data]);
   const filt=cat=>games.filter(g=>g.category===cat);const t1=filt("tier1");const cc=filt("completed").length;const allP=[...new Set(games.map(g=>g.platform))];
-  if(!loaded)return null;
+
+  if(authLoading)return(<div style={{minHeight:"100vh",background:"#08080c",display:"flex",alignItems:"center",justifyContent:"center"}}><div style={{color:"rgba(255,255,255,.3)",fontFamily:"'Outfit',sans-serif"}}>Loading...</div></div>);
+  if(!user)return <LoginScreen/>;
+  if(!loaded)return(<div style={{minHeight:"100vh",background:"#08080c",display:"flex",alignItems:"center",justifyContent:"center"}}><div style={{color:"rgba(255,255,255,.3)",fontFamily:"'Outfit',sans-serif"}}>Loading your backlog...</div></div>);
+
   const grid=list=>(<div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(150px,1fr))",gap:16}}>{list.map(g=><Card key={g.id} game={g} data={data} onClick={()=>setSel(g)}/>)}</div>);
   const rc=recent();
   return(<div style={{minHeight:"100vh",background:"#08080c",color:"#fff",fontFamily:"'Work Sans',sans-serif"}}>
     <div style={{maxWidth:960,margin:"0 auto",padding:"32px 20px 60px"}}>
       <div style={{marginBottom:28}}>
-        <div style={{fontSize:10,fontWeight:600,letterSpacing:"2px",color:"rgba(255,255,255,.25)",textTransform:"uppercase",fontFamily:"'Outfit',sans-serif",marginBottom:6}}>Backlog</div>
+        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:6}}>
+          <div style={{fontSize:10,fontWeight:600,letterSpacing:"2px",color:"rgba(255,255,255,.25)",textTransform:"uppercase",fontFamily:"'Outfit',sans-serif"}}>Backlog</div>
+          <button onClick={signOut} style={{fontSize:10,color:"rgba(255,255,255,.2)",background:"transparent",border:"none",cursor:"pointer",fontFamily:"'Work Sans',sans-serif",padding:"4px 8px",borderRadius:4}} onMouseEnter={e=>e.target.style.color="rgba(255,255,255,.5)"} onMouseLeave={e=>e.target.style.color="rgba(255,255,255,.2)"}>Sign out</button>
+        </div>
         <h1 style={{fontFamily:"'Outfit',sans-serif",fontSize:28,fontWeight:800,letterSpacing:"-.5px",margin:0,lineHeight:1.1}}>Gaming Library</h1>
         <div style={{marginTop:8,fontSize:12,color:"rgba(255,255,255,.3)",display:"flex",alignItems:"center",justifyContent:"space-between"}}><span>{cc} of {games.length} completed</span>
           <button onClick={()=>{setSearch(search?"":"_open")}} style={{background:"transparent",border:"none",color:"rgba(255,255,255,.3)",cursor:"pointer",fontSize:16,padding:4}}>⌕</button>
