@@ -183,7 +183,7 @@ export default function App(){
           <button onClick={signOut} style={{fontSize:10,color:"rgba(255,255,255,.2)",background:"transparent",border:"none",cursor:"pointer",fontFamily:"'Work Sans',sans-serif",padding:"4px 8px",borderRadius:4}} onMouseEnter={e=>e.target.style.color="rgba(255,255,255,.5)"} onMouseLeave={e=>e.target.style.color="rgba(255,255,255,.2)"}>Sign out</button>
         </div>
         <h1 style={{fontFamily:"'Outfit',sans-serif",fontSize:28,fontWeight:800,letterSpacing:"-.5px",margin:0,lineHeight:1.1}}>Gaming Library</h1>
-        <div style={{marginTop:8,fontSize:12,color:"rgba(255,255,255,.3)",display:"flex",alignItems:"center",justifyContent:"space-between"}}><span>{cc} of {games.length} completed</span>
+        <div style={{marginTop:8,fontSize:12,color:"rgba(255,255,255,.6)",display:"flex",alignItems:"center",justifyContent:"space-between"}}><span>{cc} of {games.length} completed</span>
           <button onClick={()=>{setSearch(search?"":"_open")}} style={{background:"transparent",border:"none",color:"rgba(255,255,255,.3)",cursor:"pointer",fontSize:16,padding:4}}>⌕</button>
         </div>
         {search!==""&&<div style={{marginTop:12,position:"relative"}}>
@@ -200,19 +200,19 @@ export default function App(){
         <button onClick={()=>{setTab("fulllibrary");setLibSub(null)}} style={{padding:"8px 14px",borderRadius:8,border:"none",cursor:"pointer",fontFamily:"'Outfit',sans-serif",fontSize:12,fontWeight:600,background:tab==="fulllibrary"?"rgba(255,255,255,.12)":"transparent",color:tab==="fulllibrary"?"#fff":"rgba(255,255,255,.35)"}}>Full Library</button>
       </div>
       {search&&search!=="_open"?<div>
-        <div style={{fontSize:11,color:"rgba(255,255,255,.2)",fontStyle:"italic",marginBottom:16}}>{games.filter(g=>g.title.toLowerCase().includes(search.toLowerCase())).length} results for "{search}"</div>
+        <div style={{fontSize:11,color:"rgba(255,255,255,.6)",fontStyle:"italic",marginBottom:16}}>{games.filter(g=>g.title.toLowerCase().includes(search.toLowerCase())).length} results for "{search}"</div>
         {grid(games.filter(g=>g.title.toLowerCase().includes(search.toLowerCase())))}
       </div>:<>
       {tab==="dashboard"&&!libSub&&<div>
         {rc.length>0&&<div style={{marginBottom:32}}>
-          <div style={{fontSize:11,fontWeight:700,color:"rgba(255,255,255,.25)",letterSpacing:"1.5px",textTransform:"uppercase",fontFamily:"'Outfit',sans-serif",marginBottom:12}}>Recent Activity</div>
+          <div style={{fontSize:11,fontWeight:700,color:"rgba(255,255,255,.7)",letterSpacing:"1.5px",textTransform:"uppercase",fontFamily:"'Outfit',sans-serif",marginBottom:12}}>Recent Activity</div>
           {rc.map((r,i)=>(<div key={i} style={{display:"flex",alignItems:"center",gap:12,padding:"8px 0",borderBottom:"1px solid rgba(255,255,255,.04)"}}>
             <div style={{width:4,height:4,borderRadius:"50%",background:r.accent,flexShrink:0}}/>
-            <div><span style={{fontSize:12,color:"rgba(255,255,255,.6)"}}>{r.game}</span><span style={{fontSize:12,color:"rgba(255,255,255,.3)",margin:"0 6px"}}>→</span><span style={{fontSize:12,color:"rgba(255,255,255,.5)"}}>{r.ch}</span></div>
-            <span style={{marginLeft:"auto",fontSize:10,color:"rgba(255,255,255,.2)"}}>{new Date(r.ts).toLocaleDateString()}</span>
+            <div><span style={{fontSize:12,color:"rgba(255,255,255,.85)"}}>{r.game}</span><span style={{fontSize:12,color:"rgba(255,255,255,.5)",margin:"0 6px"}}>→</span><span style={{fontSize:12,color:"rgba(255,255,255,.7)"}}>{r.ch}</span></div>
+            <span style={{marginLeft:"auto",fontSize:10,color:"rgba(255,255,255,.45)"}}>{new Date(r.ts).toLocaleDateString()}</span>
           </div>))}
         </div>}
-        <div style={{fontSize:11,color:"rgba(255,255,255,.2)",fontStyle:"italic",marginBottom:16}}>Active games · {t1.length} in focus</div>
+        <div style={{fontSize:11,color:"rgba(255,255,255,.6)",fontStyle:"italic",marginBottom:16}}>Active games · {t1.length} in focus</div>
         {grid(t1)}
       </div>}
       {tab==="tier1"&&!libSub&&grid(filt("tier1"))}
